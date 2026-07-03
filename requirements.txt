@@ -1,0 +1,29 @@
+# ── Core Framework ──────────────────────────────────────
+Django
+daphne
+channels
+
+# ── Image & File Handling ────────────────────────────────
+Pillow
+
+# ── Excel / Spreadsheet ──────────────────────────────────
+openpyxl
+
+# ── PDF Generation ───────────────────────────────────────
+xhtml2pdf
+fpdf
+
+# ── REST API ─────────────────────────────────────────────
+djangorestframework
+
+# ── Reports & Data ───────────────────────────────────────
+pandas
+python-docx
+
+# ── Dev Tools ────────────────────────────────────────────
+django-debug-toolbar
+
+# ── Testing ──────────────────────────────────────────────
+pytest
+pytest-django
+coverage

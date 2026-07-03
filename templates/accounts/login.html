@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Observatory Management System</title>
+    {% load static %}
+    <link href="{% static 'vendor/google-fonts/css2.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'vendor/font-awesome/css/all.min.css' %}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-size: 16px;
+            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Color Themes depending on active module */
+        body.theme-telescope {
+            background-color: #ffffff;
+            --accent: #a855f7;
+            --accent-gradient: linear-gradient(135deg, #a855f7, #6366f1);
+            --accent-glow: rgba(168, 85, 247, 0.15);
+            --border-color: rgba(168, 85, 247, 0.2);
+        }
+        body.theme-project {
+            background-color: #ffffff;
+            --accent: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #06b6d4);
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --border-color: rgba(59, 130, 246, 0.2);
+        }
+        body.theme-inventory {
+            background-color: #ffffff;
+            --accent: #10b981;
+            --accent-gradient: linear-gradient(135deg, #10b981, #059669);
+            --accent-glow: rgba(16, 185, 129, 0.15);
+            --border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        /* Animated background grid - made extremely light for white theme */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Glow orbs - very subtle in white theme */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 2;
+            animation: float 10s ease-in-out infinite;
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .orb-1 {
+            width: 550px; height: 550px;
+            top: -180px; left: -180px;
+        }
+        .orb-2 {
+            width: 450px; height: 450px;
+            bottom: -120px; right: -120px;
+            animation-delay: -5s;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(30px, -30px) scale(1.05); }
+        }
+
+        body.theme-telescope .orb-1 { background: rgba(168, 85, 247, 0.08); }
+        body.theme-telescope .orb-2 { background: rgba(99, 102, 241, 0.05); }
+        body.theme-project .orb-1 { background: rgba(59, 130, 246, 0.08); }
+        body.theme-project .orb-2 { background: rgba(6, 182, 212, 0.05); }
+        body.theme-inventory .orb-1 { background: rgba(16, 185, 129, 0.08); }
+        body.theme-inventory .orb-2 { background: rgba(5, 150, 105, 0.05); }
+
+        .login-container {
+            width: 100%;
+            max-width: 540px;
+            padding: 24px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Header Info above Card */
+        .brand-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: var(--accent-gradient);
+            border-radius: 16px;
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            font-family: 'Space Grotesk', sans-serif;
+            box-shadow: 0 8px 24px var(--accent-glow);
+            transition: all 0.5s ease;
+            margin-bottom: 14px;
+        }
+        .brand-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 34px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .brand-title span {
+            color: var(--accent);
+            transition: color 0.5s ease;
+        }
+        .brand-subtitle {
+            font-size: 17px;
+            color: rgba(15, 23, 42, 0.65);
+            margin-top: 6px;
+        }
+
+        /* Accordion Premium White Card */
+        .login-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+            transition: border-color 0.8s ease, box-shadow 0.8s ease;
+        }
+
+        /* Accordion Module Sections */
+        .module-section {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: background-color 0.4s ease;
+        }
+        .module-section:last-child {
+            border-bottom: none;
+        }
+        
+        .module-header {
+            padding: 26px 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        .module-header-left {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .header-icon {
+            font-size: 24px;
+            color: rgba(0, 0, 0, 0.35);
+            transition: all 0.3s ease;
+            width: 28px;
+            text-align: center;
+        }
+        .header-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: rgba(0, 0, 0, 0.45);
+            transition: all 0.3s ease;
+        }
+        .header-arrow {
+            font-size: 16px;
+            color: rgba(0, 0, 0, 0.25);
+            transition: transform 0.4s ease, color 0.3s ease;
+        }
+
+        /* Collapsible Content Area */
+        .module-content {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        .module-inner-form {
+            min-height: 0;
+            padding: 0 28px 32px 28px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        /* Hover & Active States */
+        .module-section:not(.active):hover .header-text {
+            color: rgba(0, 0, 0, 0.8);
+        }
+        .module-section:not(.active):hover .header-icon {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .module-section.active {
+            background: rgba(0, 0, 0, 0.01);
+        }
+        .module-section.active .header-text {
+            color: #0f172a;
+        }
+        .module-section.active .header-icon {
+            color: var(--accent);
+            text-shadow: 0 0 12px var(--accent-glow);
+        }
+        .module-section.active .header-arrow {
+            transform: rotate(180deg);
+            color: var(--accent);
+        }
+        .module-section.active .module-content {
+            grid-template-rows: 1fr;
+        }
+        .module-section.active .module-inner-form {
+            opacity: 1;
+            transform: translateY(0);
+            transition-delay: 0.1s;
+        }
+
+        /* Form Inputs & Elements */
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(15, 23, 42, 0.7);
+            margin-bottom: 10px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+        .input-wrap {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 16px; top: 50%;
+            transform: translateY(-50%);
+            color: rgba(0, 0, 0, 0.35);
+            font-size: 18px;
+            pointer-events: none;
+            transition: color 0.3s;
+        }
+        .form-input {
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 12px;
+            color: #0f172a;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            padding: 16px 16px 16px 48px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+            background: #ffffff;
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+        .form-input:focus ~ .input-icon {
+            color: var(--accent);
+        }
+        .form-input::placeholder {
+            color: rgba(0, 0, 0, 0.35);
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 16px; top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: rgba(0, 0, 0, 0.35);
+            font-size: 18px;
+            transition: color 0.2s;
+        }
+        .password-toggle:hover {
+            color: #0f172a;
+        }
+
+        /* Buttons */
+        .btn-login {
+            width: 100%;
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 12px;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .login-footer {
+            margin-top: 28px;
+            text-align: center;
+            font-size: 15px;
+            color: rgba(15, 23, 42, 0.5);
+            letter-spacing: 0.3px;
+        }
+
+        /* Toast notification for errors */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #ef4444;
+            border-radius: 14px;
+            padding: 18px 22px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            min-width: 340px;
+            max-width: 460px;
+            pointer-events: all;
+            animation: slideInToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideInToast {
+            from { opacity: 0; transform: translateX(80px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .toast-icon { color: #ef4444; font-size: 22px; flex-shrink: 0; }
+        .toast-text { font-size: 16px; color: #0f172a; line-height: 1.4; flex: 1; }
+        .toast-close {
+            background: none; border: none; color: rgba(0, 0, 0, 0.35);
+            cursor: pointer; font-size: 22px; padding: 0; line-height: 1;
+        }
+        .toast-close:hover { color: #0f172a; }
+    </style>
+</head>
+<body class="theme-project">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <!-- Error Toasts -->
+    {% if form.non_field_errors or messages %}
+    <div class="toast-container">
+        {% for error in form.non_field_errors %}
+        <div class="toast">
+            <i class="fas fa-exclamation-circle toast-icon"></i>
+            <span class="toast-text">{{ error }}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+        {% for msg in messages %}
+        <div class="toast" style="{% if msg.tags == 'success' %}border-left-color:#10b981{% endif %}">
+            <i class="fas {% if msg.tags == 'success' %}fa-check-circle{% else %}fa-info-circle toast-icon{% endif %}"{% if msg.tags == 'success' %} style="color:#10b981"{% endif %}></i>
+            <span class="toast-text">{{ msg }}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                var audio = new Audio('/media/music/notification.mp3');
+                audio.play().catch(function(e) {
+                    console.log("Audio playback blocked/failed:", e);
+                });
+            } catch(e) {
+                console.log("Audio play error:", e);
+            }
+        });
+    </script>
+    {% endif %}
+
+    <div class="login-container">
+        <div class="brand-header">
+            <div class="brand-logo">O</div>
+            <h1 class="brand-title">Observatory <span>Management</span></h1>
+            <div class="brand-subtitle">Unified Resource & Control Portal</div>
+        </div>
+
+        <div class="login-card">
+            <!-- 1. Telescope Management Section -->
+            <div class="module-section" id="module-telescope">
+                <div class="module-header" onclick="selectModule('telescope')">
+                    <div class="module-header-left">
+                        <i class="fas fa-binoculars header-icon"></i>
+                        <span class="header-text">Telescope Management</span>
+                    </div>
+                    <i class="fas fa-chevron-down header-arrow"></i>
+                </div>
+                <div class="module-content">
+                    <div class="module-inner-form">
+                        <form method="post" action="{% url 'accounts:telescope_login' %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-user input-icon"></i>
+                                    <input type="text" name="username" class="form-input" placeholder="Enter your telescope operator ID" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Password</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-lock input-icon"></i>
+                                    <input type="password" name="password" class="form-input" placeholder="Enter security credentials" required>
+                                    <button type="button" class="password-toggle" onclick="togglePwd(this)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% if next %}
+                            <input type="hidden" name="next" value="{{ next }}">
+                            {% endif %}
+                            <button type="submit" class="btn-login">
+                                <i class="fas fa-satellite-dish"></i> Access Telescope Console
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Project Management Section -->
+            <div class="module-section" id="module-project">
+                <div class="module-header" onclick="selectModule('project')">
+                    <div class="module-header-left">
+                        <i class="fas fa-project-diagram header-icon"></i>
+                        <span class="header-text">Project Management</span>
+                    </div>
+                    <i class="fas fa-chevron-down header-arrow"></i>
+                </div>
+                <div class="module-content">
+                    <div class="module-inner-form">
+                        <form method="post" action="{% url 'accounts:login' %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-user input-icon"></i>
+                                    <input type="text" name="username" class="form-input" placeholder="Enter project username" value="{{ form.username.value|default:'' }}" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Password</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-lock input-icon"></i>
+                                    <input type="password" name="password" class="form-input" placeholder="Enter password" required>
+                                    <button type="button" class="password-toggle" onclick="togglePwd(this)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% if next %}
+                            <input type="hidden" name="next" value="{{ next }}">
+                            {% endif %}
+                            <button type="submit" class="btn-login">
+                                <i class="fas fa-rocket"></i> Sign In to PM Workspace
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Inventory Management Section -->
+            <div class="module-section" id="module-inventory">
+                <div class="module-header" onclick="selectModule('inventory')">
+                    <div class="module-header-left">
+                        <i class="fas fa-boxes header-icon"></i>
+                        <span class="header-text">Inventory Management</span>
+                    </div>
+                    <i class="fas fa-chevron-down header-arrow"></i>
+                </div>
+                <div class="module-content">
+                    <div class="module-inner-form">
+                        <form method="post" action="{% url 'accounts:inventory_login' %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-user input-icon"></i>
+                                    <input type="text" name="username" class="form-input" placeholder="Enter inventory ID" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Password</label>
+                                <div class="input-wrap">
+                                    <i class="fas fa-lock input-icon"></i>
+                                    <input type="password" name="password" class="form-input" placeholder="Enter password" required>
+                                    <button type="button" class="password-toggle" onclick="togglePwd(this)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% if next %}
+                            <input type="hidden" name="next" value="{{ next }}">
+                            {% endif %}
+                            <button type="submit" class="btn-login">
+                                <i class="fas fa-warehouse"></i> Access Inventory Dashboard
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="login-footer">
+            System access restricted to authorized personnel only.
+        </div>
+    </div>
+
+    <script>
+        function selectModule(moduleId) {
+            // Update active state in accordion
+            document.querySelectorAll('.module-section').forEach(section => {
+                if (section.id === `module-${moduleId}`) {
+                    section.classList.add('active');
+                } else {
+                    section.classList.remove('active');
+                }
+            });
+
+            // Smoothly shift body class (color palette)
+            document.body.className = `theme-${moduleId}`;
+
+            // Persist choice
+            localStorage.setItem('active_login_tab', moduleId);
+        }
+
+        function togglePwd(btn) {
+            const input = btn.previousElementSibling;
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // Initialize based on saved preferences or backend errors
+        window.addEventListener('DOMContentLoaded', () => {
+            let activeTab = localStorage.getItem('active_login_tab') || 'project';
+
+            // Server-side override based on error messaging
+            const hasErrors = {% if form.errors or form.non_field_errors or messages %}true{% else %}false{% endif %};
+            if (hasErrors) {
+                const errorText = `
+                    {% if form.errors %}{{ form.errors.as_text }}{% endif %}
+                    {% if form.non_field_errors %}{{ form.non_field_errors.as_text }}{% endif %}
+                    {% for msg in messages %}{{ msg.message }}{% endfor %}
+                `.toLowerCase();
+
+                if (errorText.includes('inventory')) {
+                    activeTab = 'inventory';
+                } else if (errorText.includes('telescope')) {
+                    activeTab = 'telescope';
+                } else {
+                    activeTab = 'project';
+                }
+            }
+
+            selectModule(activeTab);
+        });
+    </script>
+</body>
+</html>

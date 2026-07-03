@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}{{ note.title }}{% if project %} — {{ project.name }}{% endif %} — IIAP OM{% endblock %}
+{% block page_title %}Knowledge Base{% endblock %}
+{% block topbar_actions %}
+{% if request.user == note.author or request.user.is_admin %}
+<a href="{% url 'tasks:kb_edit' note.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit Note</a>
+{% elif project and request.user in project.managers.all %}
+<a href="{% url 'tasks:kb_edit' note.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit Note</a>
+{% endif %}
+{% if request.user == note.author or request.user.is_admin %}
+<a href="{% url 'tasks:kb_access' note.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-lock"></i> Manage Access</a>
+<a href="{% url 'tasks:kb_delete' note.pk %}" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete Note</a>
+{% elif project and request.user in project.managers.all %}
+<a href="{% url 'tasks:kb_access' note.pk %}" class="btn btn-secondary btn-sm"><i class="fas fa-lock"></i> Manage Access</a>
+<a href="{% url 'tasks:kb_delete' note.pk %}" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete Note</a>
+{% endif %}
+{% if project %}
+<a href="{% url 'tasks:kb_list' project.pk %}" class="btn btn-primary btn-sm"><i class="fas fa-list"></i> All Notes</a>
+{% else %}
+<a href="{% url 'tasks:kb_overview' %}" class="btn btn-primary btn-sm"><i class="fas fa-list"></i> All Notes</a>
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+{% load static %}
+<script src="{% static 'vendor/marked/marked.min.js' %}"></script>
+<style>
+    /* ── Project Theme ── */
+    {% if project.button_color %}
+    :root {
+        --accent: {{ project.button_color }};
+        --accent-hover: {{ project.button_color }}cc;
+        --accent-glow: {{ project.button_color }}26;
+    }
+    {% endif %}
+    {% if project.background_color and project.background_color != '#ffffff' %}
+    [data-theme="light"] {
+        --bg-primary: {{ project.background_color }};
+    }
+    {% endif %}
+
+/* ── Markdown Body ── */
+.markdown-body {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+    margin-top: 24px;
+    margin-bottom: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-primary);
+}
+.markdown-body h1 { font-size: 2em;   border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body pre {
+    background-color: #0d1117;
+    color: #e6edf3;
+    border-radius: 6px;
+    padding: 16px;
+    overflow: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: 85%;
+    line-height: 1.45;
+}
+.markdown-body code {
+    background-color: var(--bg-hover);
+    border-radius: 6px;
+    padding: .2em .4em;
+    font-family: 'Fira Code', monospace;
+    font-size: 85%;
+}
+.markdown-body pre code { background-color: transparent; padding: 0; }
+.markdown-body blockquote {
+    padding: 0 1em;
+    color: var(--text-muted);
+    border-left: .25em solid var(--accent);
+    margin: 0 0 16px 0;
+    font-style: italic;
+}
+.markdown-body ul, .markdown-body ol { margin-bottom: 16px; padding-left: 2em; }
+.markdown-body li { margin-bottom: 4px; }
+.markdown-body p  { margin-top: 0; margin-bottom: 14px; }
+.markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.markdown-body table th,
+.markdown-body table td { border: 1px solid var(--border); padding: 8px 13px; }
+.markdown-body table tr:nth-child(2n) { background-color: var(--bg-hover); }
+
+/* ── Subscript / Superscript (HTML tags from Google Docs export) ── */
+.markdown-body sub {
+    font-size: 75%;
+    vertical-align: sub;
+    line-height: 0;
+}
+.markdown-body sup {
+    font-size: 75%;
+    vertical-align: super;
+    line-height: 0;
+}
+
+/* ── KaTeX display blocks ── */
+.markdown-body .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 0;
+    margin: 16px 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>
+            {% if project %}
+            <a href="{% url 'tasks:project_detail' project.pk %}" style="text-decoration:none; color:var(--text-secondary)"><i class="fas fa-chevron-left"></i> {{ project.name }}</a> / <a href="{% url 'tasks:kb_list' project.pk %}" style="text-decoration:none; color:var(--text-secondary)">Knowledge Base</a> / {{ note.title }}
+            {% else %}
+            <a href="{% url 'tasks:kb_overview' %}" style="text-decoration:none; color:var(--text-secondary)"><i class="fas fa-chevron-left"></i> Notes</a> / {{ note.title }}
+            {% endif %}
+        </h1>
+        <p>By {% if note.author %}{{ note.author.display_name }}{% else %}Unknown{% endif %} &bull; Last updated {{ note.updated_at|date:"M d, Y H:i" }}</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">{{ note.title }}</div>
+    </div>
+
+    <!-- Raw content stored in a textarea (never visible, never executed) -->
+    <textarea id="content-raw" style="display:none;">{{ note.content }}</textarea>
+
+    <div id="markdown-render" class="markdown-body" style="padding: 16px 4px;">
+        <div style="display:flex; justify-content:center; padding:40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size:24px; color:var(--accent); opacity:0.5;"></i>
+        </div>
+    </div>
+</div>
+
+<script>
+/*
+ * Math-aware Markdown renderer
+ * ────────────────────────────
+ * Problem: marked.js mangles LaTeX — it turns underscores into <em> (italic),
+ * backslashes into escapes, and asterisks into <strong>.  So $a_{n}^{2}$ gets
+ * destroyed before KaTeX ever sees it.
+ *
+ * Solution (segment approach):
+ *   1. Scan the raw source with a regex that matches ALL math regions.
+ *   2. Split the source into alternating [text, math, text, math, ...] segments.
+ *   3. Pass ONLY the text segments through marked — math is NEVER touched by marked.
+ *   4. Concatenate the pieces, inject into the DOM.
+ *   5. Call KaTeX renderMathInElement() on the rendered element.
+ *
+ * This is 100% safe because marked never sees the math content.
+ */
+document.addEventListener("DOMContentLoaded", function () {
+
+    var rawEl  = document.getElementById("content-raw");
+    var outEl  = document.getElementById("markdown-render");
+    if (!rawEl || !outEl) return;
+
+    var src = rawEl.value;
+
+    // Unescape math delimiters (e.g. from Google Docs export)
+    src = src.replace(/\\\$\$/g, () => '$$');
+    src = src.replace(/\\\\\(/g, () => '\\(');
+    src = src.replace(/\\\\\)/g, () => '\\)');
+    src = src.replace(/\\\\\[/g, () => '\\[');
+    src = src.replace(/\\\\\]/g, () => '\\]');
+    src = src.replace(/\\\$(?!\d)/g, () => '$');
+
+    // Strip angle brackets from base64 image definitions
+    src = src.replace(/^\[image(\d+)\]:\s*<(data:image\/[^>]+)>/gm, '[image$1]: $2');
+
+    if (typeof marked === 'undefined') {
+        outEl.innerHTML = '<p style="color:var(--red)"><b>Error:</b> Markdown renderer (marked.js) not loaded.</p>';
+        return;
+    }
+
+    try {
+        marked.setOptions({ gfm: true, pedantic: false, breaks: false });
+    } catch(e) { /* older marked versions may not have all options */ }
+
+    var codeBlocks = [];
+    var codePlaceholderPrefix = "CODEPH";
+    var codeRegex = /(\`\`\`[\s\S]*?\`\`\`|\`[^\`\n]*?\`)/g;
+
+    var contentWithCodePlaceholders = src.replace(codeRegex, function (match) {
+        var placeholder = codePlaceholderPrefix + codeBlocks.length + "X";
+        codeBlocks.push(match);
+        return placeholder;
+    });
+
+    var mathBlocks = [];
+    var placeholderPrefix = "KTXPH";
+    var mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]+?\\\)|\\begin\{([\s\S]+?)\}[\s\S]+?\\end\{\2\})/g;
+
+    var preservedContent = contentWithCodePlaceholders.replace(mathRegex, function (match) {
+        var placeholder = placeholderPrefix + mathBlocks.length + "X";
+        mathBlocks.push(match);
+        return placeholder;
+    });
+
+    for (var i = 0; i < codeBlocks.length; i++) {
+        var placeholder = codePlaceholderPrefix + i + "X";
+        preservedContent = preservedContent.split(placeholder).join(codeBlocks[i]);
+    }
+
+    var renderedHtml = marked.parse(preservedContent);
+
+    for (var i = 0; i < mathBlocks.length; i++) {
+        var placeholder = placeholderPrefix + i + "X";
+        var isDisplay = (
+            mathBlocks[i].slice(0, 2) === '$$'      ||
+            mathBlocks[i].slice(0, 2) === '\\['     ||
+            mathBlocks[i].slice(0, 6) === '\\begin'
+        );
+        var mathHtml = isDisplay ? '<div class="math-display-wrapper">' + mathBlocks[i] + '</div>' : mathBlocks[i];
+        renderedHtml = renderedHtml.split(placeholder).join(mathHtml);
+    }
+
+    outEl.innerHTML = renderedHtml;
+
+    // ── 4. Run KaTeX AFTER the HTML is in the DOM ──────────────────────────────
+    // core_base.html loads katex.min.js and auto-render.min.js with `defer`,
+    // so they may not be ready yet.  Poll every 30 ms until available.
+    function runKaTeX() {
+        if (typeof renderMathInElement === 'function') {
+            renderMathInElement(outEl, {
+                delimiters: [
+                    { left: '$$',                right: '$$',              display: true  },
+                    { left: '\\[',               right: '\\]',             display: true  },
+                    { left: '\\begin{equation}', right: '\\end{equation}', display: true  },
+                    { left: '\\begin{align}',    right: '\\end{align}',    display: true  },
+                    { left: '\\begin{alignat}',  right: '\\end{alignat}',  display: true  },
+                    { left: '\\begin{gather}',   right: '\\end{gather}',   display: true  },
+                    { left: '\\begin{CD}',       right: '\\end{CD}',       display: true  },
+                    { left: '$',                 right: '$',               display: false },
+                    { left: '\\(',               right: '\\)',             display: false }
+                ],
+                throwOnError: false,
+                errorColor: '#ef4444'
+            });
+        } else {
+            setTimeout(runKaTeX, 30);
+        }
+    }
+    runKaTeX();
+});
+</script>
+{% endblock %}

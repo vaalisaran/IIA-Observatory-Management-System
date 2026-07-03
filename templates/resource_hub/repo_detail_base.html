@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ repo.name }} — Resource Hub{% endblock %}
+
+{% block extra_css %}
+<style>
+.repo-header-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+.repo-header-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.repo-name-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.repo-clone-box {
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 100%;
+}
+.repo-clone-input {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 12px;
+    outline: none;
+    width: 280px;
+    margin-left: 6px;
+}
+.btn-copy {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 2px 6px;
+    transition: var(--transition);
+}
+.btn-copy:hover {
+    color: var(--border-light);
+}
+.repo-nav-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    gap: 8px;
+}
+.repo-tab {
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.repo-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.02);
+}
+.repo-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+{% block repo_extra_css %}{% endblock %}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Repository Breadcrumb & Navigation -->
+<div style="margin-bottom: 16px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+    <a href="{% url 'resource_hub:repo_list' %}" style="color: var(--accent); text-decoration: none;">Resource Hub</a>
+    <i class="fas fa-chevron-right" style="font-size: 8px; color: var(--text-muted);"></i>
+    <span style="color: var(--text-muted);">{{ repo.name }}</span>
+</div>
+
+{% if not git_available %}
+<div class="card" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 14px;">
+    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 18px; flex-shrink: 0;">
+        <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div style="flex-grow: 1;">
+        <h3 style="font-size: 14px; font-weight: 700; color: var(--red); margin-bottom: 4px;">Git Server Dependency Missing</h3>
+        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 8px;">
+            The Git command-line tool is not installed on this server. File browsing, commit history, pushes, and uploads are currently disabled.
+        </p>
+        <a href="{% url 'resource_hub:repo_create' %}#git-setup-guide" class="btn btn-danger btn-sm" style="font-size: 12px; font-weight: 600; padding: 5px 12px; border-color: rgba(239,68,68,0.4); text-transform: none; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fas fa-tools"></i> View Installation Instructions
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<div class="repo-header-container">
+    <div class="repo-header-title">
+        <div class="repo-name-section">
+            <i class="fas {% if repo.is_private %}fa-lock{% else %}fa-globe{% endif %}" style="color: var(--accent);"></i>
+            <span>{{ repo.name }}</span>
+            <span class="repo-badge {% if repo.is_private %}badge-private{% else %}badge-public{% endif %}" style="font-size: 11px; padding: 2px 8px; border-radius: 12px;">
+                {% if repo.is_private %}Private{% else %}Public{% endif %}
+            </span>
+            {% if request.user == repo.owner %}
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(79,142,247,0.1); color: var(--accent); border: 1px solid rgba(79,142,247,0.2);">Owner</span>
+            {% elif is_owner_or_admin and request.user != repo.owner %}
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(139,92,246,0.1); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.2);">Admin</span>
+            {% elif repo.collaborators.all|length > 0 %}
+            {% with collab_check=repo.collaborators.all %}
+            {% for c in collab_check %}{% if c == request.user %}
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Collaborator</span>
+            {% endif %}{% endfor %}
+            {% endwith %}
+            {% endif %}
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="repo-clone-box">
+                <span>git clone</span>
+                <input type="text" class="repo-clone-input" id="cloneUrlInput" value="{{ clone_url }}" readonly>
+                <button class="btn-copy" onclick="copyCloneUrl()" title="Copy Clone URL">
+                    <i class="fas fa-copy" id="copyIcon"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% if repo.description %}
+    <p style="color: var(--text-muted); font-size: 13px; margin: 0; line-height: 1.5;">
+        {{ repo.description }}
+    </p>
+    {% endif %}
+</div>
+
+<!-- Tabs Navigation -->
+<div class="repo-nav-tabs" style="display: flex; overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: 20px; gap: 4px; scrollbar-width: none; -ms-overflow-style: none; white-space: nowrap;">
+    <a href="{% url 'resource_hub:repo_code' repo.slug %}" class="repo-tab {% if active_tab == 'code' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-code"></i> Code
+    </a>
+    <a href="{% url 'resource_hub:repo_commits' repo.slug %}" class="repo-tab {% if active_tab == 'commits' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-history"></i> Commits
+    </a>
+    <a href="{% url 'resource_hub:repo_user_guide' repo.slug %}" class="repo-tab {% if active_tab == 'guide' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-book"></i> Guide
+    </a>
+    {% if is_owner_or_admin or repo.collaborators.all|length > 0 and request.user in repo.collaborators.all %}
+    <a href="{% url 'resource_hub:repo_upload' repo.slug %}" class="repo-tab {% if active_tab == 'upload' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-cloud-upload-alt"></i> Upload
+    </a>
+    <a href="{% url 'resource_hub:repo_settings' repo.slug %}" class="repo-tab {% if active_tab == 'settings' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-cog"></i> Settings
+    </a>
+    {% endif %}
+    {% if request.user == repo.owner %}
+    <a href="{% url 'resource_hub:repo_logs' repo.slug %}" class="repo-tab {% if active_tab == 'logs' %}active{% endif %}" style="flex-shrink: 0;">
+        <i class="fas fa-list-alt"></i> Logs
+    </a>
+    {% endif %}
+</div>
+
+<!-- Dynamic Child Page Content -->
+{% block repo_content %}{% endblock %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyCloneUrl() {
+    const input = document.getElementById('cloneUrlInput');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999); /* For mobile devices */
+    
+    const command = 'git clone ' + input.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).then(() => {
+            const icon = document.getElementById('copyIcon');
+            if (icon) {
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                icon.style.color = '#10b981'; // Green color
+                
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-copy');
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }).catch(() => {
+            fallbackCopyText(command);
+        });
+    } else {
+        fallbackCopyText(command);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.position = 'fixed';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            const icon = document.getElementById('copyIcon');
+            if (icon) {
+                icon.classList.remove('fa-copy');
+                icon.classList.add('fa-check');
+                icon.style.color = '#10b981';
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-copy');
+                    icon.style.color = '';
+                }, 2000);
+            }
+        }
+    } catch (err) {
+        console.error('Fallback copy failed', err);
+    }
+    document.body.removeChild(textarea);
+}
+
+// Dynamically update all git URLs to match the current browser origin (handles local network IP addresses)
+document.addEventListener("DOMContentLoaded", function() {
+    const origin = window.location.origin;
+    
+    // 1. Update inputs
+    const inputs = document.querySelectorAll('#cloneUrlInput, #settingsCloneUrl, .repo-clone-input');
+    inputs.forEach(input => {
+        if (input && input.value) {
+            const pathIdx = input.value.indexOf('/resource-hub/git/');
+            if (pathIdx !== -1) {
+                input.value = origin + input.value.substring(pathIdx);
+            }
+        }
+    });
+    
+    // 2. Update cloneCmd pre block
+    const cloneCmd = document.getElementById('cloneCmd');
+    if (cloneCmd) {
+        const txt = cloneCmd.textContent;
+        const pathIdx = txt.indexOf('/resource-hub/git/');
+        if (pathIdx !== -1) {
+            cloneCmd.textContent = 'git clone ' + origin + txt.substring(pathIdx);
+        }
+    }
+    
+    // 3. Update setupCmd pre block
+    const setupCmd = document.getElementById('setupCmd');
+    if (setupCmd) {
+        let txt = setupCmd.textContent;
+        const regex = /http[s]?:\/\/[^\/\s]+(\/resource-hub\/git\/[^\/\s]+)/g;
+        setupCmd.textContent = txt.replace(regex, origin + '$1');
+    }
+
+    // 4. Update setup-code-block pre elements (for empty repos)
+    const codeBlocks = document.querySelectorAll('.setup-code-block');
+    codeBlocks.forEach(block => {
+        if (block) {
+            let txt = block.textContent;
+            const regex = /http[s]?:\/\/[^\/\s]+(\/resource-hub\/git\/[^\/\s]+)/g;
+            block.textContent = txt.replace(regex, origin + '$1');
+        }
+    });
+});
+</script>
+{% block repo_extra_js %}{% endblock %}
+{% endblock %}
