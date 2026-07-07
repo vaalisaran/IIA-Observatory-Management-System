@@ -9,9 +9,7 @@ from ..forms import LoginForm, UserSelfPasswordChangeForm
 This module handles authentication views for the system.
 It supports:
 1. Standard Project Management (PM) user login with active checks.
-2. Separate Inventory portal credentials authentication utilizing the `InventoryUser` model.
-3. Telescope Control portal authentications.
-4. Global session logouts and self password updates.
+2. Global session logouts and self password updates.
 """
 
 @never_cache
@@ -23,8 +21,6 @@ def login_view(request):
     """
     # If the user is already logged in, redirect them immediately to their designated portal
     if request.user.is_authenticated:
-        if not request.user.is_superuser and not getattr(request.user, "is_admin", False) and not getattr(request.user, "can_access_pm", False) and getattr(request.user, "can_access_telescope", False):
-            return redirect(reverse("telescope:dashboard"))
         return redirect(reverse("tasks:dashboard"))
     
     # Initialize the custom login form with POST data if present, otherwise None
@@ -53,11 +49,6 @@ def login_view(request):
             
             # Log the user into the current session. Django updates session tokens behind the scenes.
             login(request, user)
-            
-            # If there was a leftovers inventory session ID in the browser, clean it up
-            if "inv_user_id" in request.session:
-                del request.session["inv_user_id"]
-                
             messages.success(request, f"Welcome back, {user.display_name}!")
             
             # Handle post-login redirection if 'next' parameter is provided (e.g. from redirecting deep-link URLs)
@@ -72,60 +63,12 @@ def login_view(request):
     return render(request, "accounts/login.html", {"form": form})
 
 
-@never_cache
-def inventory_login(request):
-    """
-    Handles separate authentication for Inventory-only users.
-    Inventory users are not stored in standard User table; they are verified 
-    against the custom `InventoryUser` model. We set `inv_user_id` in session 
-    to track authorization.
-    """
-    if request.method == "POST":
-        username, password = request.POST.get("username"), request.POST.get("password")
-        try:
-            from inventory.models import InventoryUser
-
-            # Fetch the matching inventory user
-            user = InventoryUser.objects.get(username=username)
-            
-            # Validate password and active status
-            if user.check_password(password) and user.is_active:
-                # Log out any currently logged-in standard PM user to prevent mixed authorization states
-                logout(request)
-                
-                # Store the custom inventory user ID in session storage
-                request.session["inv_user_id"] = user.id
-                messages.success(request, f"Welcome back, {user.username}!")
-                return redirect("/inventory/dashboard/")
-            
-            messages.error(
-                request, "Invalid inventory credentials or inactive account."
-            )
-        except Exception:
-            messages.error(request, "Invalid inventory credentials.")
-            
-        return render(request, "accounts/login.html", {"form": LoginForm(request)})
-    
-    # Redirect GET requests to the standard login page
-    return redirect("accounts:login")
-
-
 def logout_view(request):
     """
     Logs out the user and flushes their active session entirely.
     """
     name = getattr(request.user, "display_name", "")
     
-    # Check if this logout originates from an inventory session
-    if "inv_user_id" in request.session:
-        try:
-            from inventory.models import InventoryUser
-            inv_user = InventoryUser.objects.get(id=request.session["inv_user_id"])
-            if not name:
-                name = inv_user.username
-        except Exception:
-            pass
-            
     # Flush destroys all session cookies and data inside backend session store
     request.session.flush()
     
@@ -164,36 +107,3 @@ def change_password(request):
         
         messages.error(request, "Please fix the errors below.")
     return render(request, "accounts/change_password.html", {"form": form})
-
-
-@never_cache
-def telescope_login(request):
-    """
-    Handles user login specifically for the Telescope Control portal.
-    Authenticates standard User, but verifies they have explicit telescope access rights.
-    """
-    if request.method == "POST":
-        from django.contrib.auth import authenticate
-        
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "").strip()
-        
-        # Authenticate checks credentials against database records
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            if not user.is_active:
-                messages.error(request, "Your account has been deactivated. Contact the administrator.")
-                return redirect("accounts:login")
-            
-            # Verify authorization access rights to the telescope module
-            if not user.is_admin and not user.can_access_telescope:
-                messages.error(request, "Access Denied: You do not have permission to access the Telescope Control System.")
-                return redirect("accounts:login")
-            
-            login(request, user)
-            messages.success(request, f"Welcome to the Telescope Control System, {user.display_name}!")
-            return redirect("/telescope/")
-        
-        messages.error(request, "Invalid username or password.")
-        
-    return redirect("accounts:login")

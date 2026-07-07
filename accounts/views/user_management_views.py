@@ -16,10 +16,10 @@ It is secured by `@login_required` and `@admin_required` decorators, meaning
 only authenticated administrators can perform operations within these endpoints.
 
 Key capabilities:
-1. Unified User List view partitioned into tabs for Project Management, Inventory, and Telescope.
+1. Unified User List view for Project Management users.
 2. Filter & Search capabilities on user lists using Q objects.
 3. Pagination of users using Django's Paginator class.
-4. CRUD operations for standard Project Management users, separate Inventory users, and Telescope operators.
+4. CRUD operations for standard Project Management users.
 5. Password resets and role changes.
 """
 
@@ -27,14 +27,9 @@ Key capabilities:
 @admin_required
 def user_list(request):
     """
-    Lists users based on selected system category tabs (Project Management 'pm', 'inventory', or 'telescope').
+    Lists Project Management users.
     Supports searching by text and filtering by role, department/team, and account status.
     """
-    from inventory.models import Branch, InventoryUser
-
-    # Identify the active portal tab (defaults to PM user list)
-    active_tab = request.GET.get("tab", "pm")
-    
     # Retrieve query and filter options from the request's GET parameters
     search, role_filter, team_filter, status_filter = (
         request.GET.get("q", ""),
@@ -43,64 +38,8 @@ def user_list(request):
         request.GET.get("status", ""),
     )
 
-    # ─── SECTION 1: INVENTORY USERS LISTING ───
-    if active_tab == "inventory":
-        users = InventoryUser.objects.all().order_by("-created_at")
-        
-        # Apply filters if present
-        if search:
-            # Match search input against username or email (case-insensitive)
-            users = users.filter(
-                Q(username__icontains=search) | Q(email__icontains=search)
-            )
-        if role_filter:
-            users = users.filter(role=role_filter)
-        if status_filter == "active":
-            users = users.filter(is_active=True)
-        elif status_filter == "inactive":
-            users = users.filter(is_active=False)
-
-        # Compute summary metrics to render in the header cards
-        stats = {
-            "total": InventoryUser.objects.count(),
-            "active": InventoryUser.objects.filter(is_active=True).count(),
-            "inactive": InventoryUser.objects.filter(is_active=False).count(),
-            "super_admins": InventoryUser.objects.filter(role="super_admin").count(),
-            "branch_admins": InventoryUser.objects.filter(role="branch_admin").count(),
-            "staff": InventoryUser.objects.filter(role="staff").count(),
-        }
-        
-        # Paginate results showing 10 inventory users per page
-        page_obj = Paginator(users, 10).get_page(request.GET.get("page"))
-        
-        return render(
-            request,
-            "accounts/user_list.html",
-            {
-                "users": page_obj,
-                "page_obj": page_obj,
-                "stats": stats,
-                "search": search,
-                "role_filter": role_filter,
-                "status_filter": status_filter,
-                "active_tab": active_tab,
-                "branches": Branch.objects.all(),
-                "role_choices": [
-                    ("super_admin", "Super Admin"),
-                    ("branch_admin", "Branch Admin"),
-                    ("staff", "Staff"),
-                ],
-            },
-        )
-
-    # ─── SECTION 2: TELESCOPE & PROJECT MANAGEMENT USERS LISTING ───
-    # Standard User model stores both PM users and Telescope operators
-    if active_tab == "telescope":
-        # Operators have the 'can_access_telescope' flag enabled
-        users = User.objects.filter(can_access_telescope=True).order_by("-date_joined")
-    else:
-        # PM users have the 'can_access_pm' flag enabled
-        users = User.objects.filter(can_access_pm=True).order_by("-date_joined")
+    # PM users have the 'can_access_pm' flag enabled
+    users = User.objects.filter(can_access_pm=True).order_by("-date_joined")
 
     # Apply filters
     if search:
@@ -120,24 +59,15 @@ def user_list(request):
     elif status_filter == "inactive":
         users = users.filter(is_active=False)
 
-    # Compute status statistics depending on which list is viewed
-    if active_tab == "telescope":
-        stats = {
-            "total": User.objects.filter(can_access_telescope=True).count(),
-            "active": User.objects.filter(can_access_telescope=True, is_active=True).count(),
-            "inactive": User.objects.filter(can_access_telescope=True, is_active=False).count(),
-            "vbt_operators": User.objects.filter(can_access_telescope=True, can_operate_vbt=True).count(),
-            "jcbt_operators": User.objects.filter(can_access_telescope=True, can_operate_jcbt=True).count(),
-        }
-    else:
-        stats = {
-            "total": User.objects.filter(can_access_pm=True).count(),
-            "active": User.objects.filter(can_access_pm=True, is_active=True).count(),
-            "inactive": User.objects.filter(can_access_pm=True, is_active=False).count(),
-            "admins": User.objects.filter(can_access_pm=True, role="admin").count(),
-            "managers": User.objects.filter(can_access_pm=True, role="project_manager").count(),
-            "members": User.objects.filter(can_access_pm=True, role="member").count(),
-        }
+    # Compute status statistics
+    stats = {
+        "total": User.objects.filter(can_access_pm=True).count(),
+        "active": User.objects.filter(can_access_pm=True, is_active=True).count(),
+        "inactive": User.objects.filter(can_access_pm=True, is_active=False).count(),
+        "admins": User.objects.filter(can_access_pm=True, role="admin").count(),
+        "managers": User.objects.filter(can_access_pm=True, role="project_manager").count(),
+        "members": User.objects.filter(can_access_pm=True, role="member").count(),
+    }
 
     # Paginate results (10 users per page)
     page_obj = Paginator(users, 10).get_page(request.GET.get("page"))
@@ -155,7 +85,7 @@ def user_list(request):
             "status_filter": status_filter,
             "role_choices": User.ROLE_CHOICES,
             "team_choices": User.MODULE_CHOICES,
-            "active_tab": active_tab,
+            "active_tab": "pm",
         },
     )
 
@@ -358,7 +288,7 @@ def change_user_role(request, pk):
         
     new_role = request.POST.get("role", "")
     
-    # Check if role value is defined inROLE_CHOICES
+    # Check if role value is defined in ROLE_CHOICES
     if new_role not in [r[0] for r in User.ROLE_CHOICES]:
         return JsonResponse(
             {"ok": False, "error": f"Invalid role: {new_role}"}, status=400
@@ -378,250 +308,3 @@ def change_user_role(request, pk):
             "new_role_display": target_user.get_role_display(),
         }
     )
-
-
-# ─── SECTION 3: INVENTORY USERS CRUD ───
-
-@login_required
-@admin_required
-def inventory_user_create(request):
-    """
-    Creates an InventoryUser account utilizing manual POST parsing.
-    """
-    from inventory.models import Branch, InventoryUser
-    
-    if request.method == "POST":
-        username = request.POST.get("username", "").strip()
-        email = request.POST.get("email", "").strip()
-        password = request.POST.get("password", "").strip()
-        role = request.POST.get("role", "staff").strip()
-        branch_id = request.POST.get("branch", "").strip()
-
-        # Validate mandatory input fields
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
-            return redirect("/accounts/users/?tab=inventory")
-
-        # Validate username uniqueness
-        if InventoryUser.objects.filter(username=username).exists() or User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-            return redirect("/accounts/users/?tab=inventory")
-
-        # Resolve inventory warehouse branch linkage
-        branch = Branch.objects.get(id=branch_id) if branch_id else None
-        
-        # Create inventory user instance
-        user = InventoryUser.objects.create(
-            username=username,
-            email=email or None,
-            role=role,
-            branch=branch,
-            is_active=True,
-        )
-        # Hash user password
-        user.set_password(password)
-        messages.success(request, f'Inventory user "{username}" created successfully.')
-        
-    return redirect("/accounts/users/?tab=inventory")
-
-
-@login_required
-@admin_required
-def inventory_user_edit(request, pk):
-    """
-    Modifies an InventoryUser account credentials and granular permission toggles.
-    """
-    from inventory.models import Branch, InventoryUser
-    
-    user = get_object_or_404(InventoryUser, pk=pk)
-    
-    if request.method == "POST":
-        # Update details
-        user.email = request.POST.get("email", "").strip() or None
-        user.role = request.POST.get("role", user.role).strip()
-        
-        branch_id = request.POST.get("branch", "").strip()
-        user.branch = Branch.objects.get(id=branch_id) if branch_id else None
-        user.is_active = request.POST.get("is_active") == "on"
-
-        # Apply checkbox values for inventory permissions
-        permission_fields = [
-            "can_access_adjustments_page",
-            "can_manage_adjustments",
-            "can_access_serials_page",
-            "can_manage_serials",
-            "can_access_limits_page",
-            "can_manage_limits",
-            "can_access_alerts_page",
-            "can_manage_alerts",
-            "can_access_rentals_page",
-            "can_manage_rentals",
-            "can_access_shortage_page",
-            "can_manage_shortage_exports",
-            "can_view_all_branches_inventory",
-            "can_add_inventory",
-            "can_edit_inventory",
-            "can_delete_inventory",
-            "can_approve_transfer",
-            "can_export_reports",
-            "can_manage_users",
-        ]
-        # Iterate over attributes and check POST dictionary
-        for field in permission_fields:
-            setattr(user, field, request.POST.get(field) == "on")
-
-        # Handle password override if supplied
-        password = request.POST.get("password", "").strip()
-        if password:
-            user.set_password(password)
-
-        user.save()
-        messages.success(request, f'Inventory user "{user.username}" updated successfully.')
-        
-    return redirect("/accounts/users/?tab=inventory")
-
-
-@login_required
-@admin_required
-def inventory_user_delete(request, pk):
-    """
-    Deactivates an InventoryUser account instead of deleting.
-    """
-    from inventory.models import InventoryUser
-    
-    user = get_object_or_404(InventoryUser, pk=pk)
-    username = user.username
-    user.is_active = False
-    user.save(update_fields=["is_active"])
-    messages.success(request, f'Inventory user "{username}" deactivated instead of deleted.')
-    return redirect("/accounts/users/?tab=inventory")
-
-
-@login_required
-@admin_required
-def inventory_user_toggle(request, pk):
-    """
-    Toggles the is_active status of an InventoryUser.
-    """
-    from inventory.models import InventoryUser
-    
-    user = get_object_or_404(InventoryUser, pk=pk)
-    user.is_active = not user.is_active
-    user.save(update_fields=["is_active"])
-    messages.success(request, f'Status of inventory user "{user.username}" updated.')
-    return redirect("/accounts/users/?tab=inventory")
-
-
-# ─── SECTION 4: TELESCOPE USERS CRUD ───
-
-@login_required
-@admin_required
-def telescope_user_create(request):
-    """
-    Creates a new Telescope Operator user with default telescope access.
-    Telescope users are standard Users but with configured telescope specific flags.
-    """
-    if request.method == "POST":
-        username = request.POST.get("username", "").strip()
-        email = request.POST.get("email", "").strip()
-        password = request.POST.get("password", "").strip()
-
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
-            return redirect("/accounts/users/?tab=telescope")
-
-        from inventory.models import InventoryUser
-        if User.objects.filter(username=username).exists() or InventoryUser.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-            return redirect("/accounts/users/?tab=telescope")
-
-        # Create user instance using helper method `create_user` (handles hashing automatically)
-        user = User.objects.create_user(
-            username=username,
-            email=email or None,
-            password=password,
-            can_access_pm=False,
-            can_access_inventory=False,
-            can_access_telescope=True, # Grant access to telescope dashboard portal
-            is_active=True,
-        )
-        user.is_active = request.POST.get("is_active") == "on"
-        user.is_telescope_admin = request.POST.get("is_telescope_admin") == "on"
-
-        # Apply specific instrument operation checkboxes
-        permission_fields = [
-            "can_operate_vbt",
-            "can_operate_jcbt",
-            "can_operate_zeiss",
-            "can_operate_cassegrain",
-            "can_operate_schmidt",
-            "can_command_dome",
-            "can_trigger_exposures",
-        ]
-        for field in permission_fields:
-            setattr(user, field, request.POST.get(field) == "on")
-        user.save()
-        messages.success(request, f'Telescope user "{username}" created successfully.')
-        
-    return redirect("/accounts/users/?tab=telescope")
-
-
-@login_required
-@admin_required
-def telescope_user_edit(request, pk):
-    """
-    Edits a Telescope User's credentials and granular operator permissions.
-    """
-    user = get_object_or_404(User, pk=pk)
-    if request.method == "POST":
-        user.email = request.POST.get("email", "").strip() or None
-        user.is_active = request.POST.get("is_active") == "on"
-        user.is_telescope_admin = request.POST.get("is_telescope_admin") == "on"
-
-        permission_fields = [
-            "can_operate_vbt",
-            "can_operate_jcbt",
-            "can_operate_zeiss",
-            "can_operate_cassegrain",
-            "can_operate_schmidt",
-            "can_command_dome",
-            "can_trigger_exposures",
-        ]
-        for field in permission_fields:
-            setattr(user, field, request.POST.get(field) == "on")
-
-        password = request.POST.get("password", "").strip()
-        if password:
-            user.set_password(password)
-
-        user.save()
-        messages.success(request, f'Telescope user "{user.username}" updated successfully.')
-        
-    return redirect("/accounts/users/?tab=telescope")
-
-
-@login_required
-@admin_required
-def telescope_user_delete(request, pk):
-    """
-    Deactivates a Telescope Operator instead of deleting.
-    """
-    user = get_object_or_404(User, pk=pk)
-    username = user.username
-    user.is_active = False
-    user.save(update_fields=["is_active"])
-    messages.success(request, f'Telescope user "{username}" deactivated instead of deleted.')
-    return redirect("/accounts/users/?tab=telescope")
-
-
-@login_required
-@admin_required
-def telescope_user_toggle(request, pk):
-    """
-    Toggles the active state of a Telescope Operator.
-    """
-    user = get_object_or_404(User, pk=pk)
-    user.is_active = not user.is_active
-    user.save(update_fields=["is_active"])
-    messages.success(request, f'Status of telescope user "{user.username}" updated.')
-    return redirect("/accounts/users/?tab=telescope")

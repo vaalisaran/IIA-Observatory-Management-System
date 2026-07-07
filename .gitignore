@@ -1,28 +1,36 @@
 # ============================================================
-# IIA Management System — .gitignore
-# Django + Python + VS Code
+# IIA Observatory Management System — .gitignore
+# Django + Python + VS Code + Windows
 # ============================================================
 
-# ─── Python ────────────────────────────────────────────────
+# ─── Python Cache ──────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 *.pyo
+*.pyd
+
+# ─── Django Migrations ─────────────────────────────────────
+# Exclude all migration files EXCEPT the __init__.py placeholder
+*/migrations/*.py
+!*/migrations/__init__.py
 
 # ─── Virtual Environments ──────────────────────────────────
-.env
 .venv/
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
+win_venv/
+*.venv
 
 # ─── Secrets & Credentials ─────────────────────────────────
-*.env
+.env
 .env.*
 !.env.example
+*.env
 client_secret.json
 radicale_users.htpasswd
 *.pem
@@ -31,14 +39,24 @@ radicale_users.htpasswd
 *.p12
 *.pfx
 local_settings.py
+secrets.py
 
-# ─── Django ────────────────────────────────────────────────
+# ─── Django Runtime & Database ─────────────────────────────
 db.sqlite3
 db.sqlite3-journal
+db.sqlite3-shm
+db.sqlite3-wal
 *.log
 media/
 media_root/
 staticfiles/
+
+# ─── Backup Files ──────────────────────────────────────────
+backups/
+restore_temp_safety/
+*.tar.gz
+*.zip
+*.bak
 
 # ─── Distribution / Packaging ──────────────────────────────
 build/
@@ -124,13 +142,13 @@ desktop.ini
 *~
 *.orig
 
-# ─── Node / Frontend (if used) ─────────────────────────────
+# ─── Node / Frontend ───────────────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ─── Docker (if used) ──────────────────────────────────────
+# ─── Docker ────────────────────────────────────────────────
 .dockerignore
 docker-compose.override.yml
 
@@ -141,9 +159,3 @@ docker-compose.override.yml
 # ─── pyproject / pip ───────────────────────────────────────
 pip-log.txt
 pip-delete-this-directory.txt
-
-backups/backup_20260604_162210.tar.gz
-backups/backup_20260604_162435.tar.gz
-db.sqlite3-shm
-db.sqlite3-wal
-backups/db_backup_20260604_162210.sqlite3

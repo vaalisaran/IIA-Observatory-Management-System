@@ -27,18 +27,6 @@ urlpatterns = [
     path("finance/", include("finance.urls", namespace="finance")),
     path("", include("tasks.urls", namespace="tasks")),
     path("chat/", include("chat.urls")),
-    
-    # Inventory Isolated Apps Routes
-    path("inventory/dashboard/", include("dashboard.urls")),
-    path("inventory/stock/", include("stock.urls")),
-    path("inventory/main/", include("inventory.urls")),
-    path("inventory/products/", include("products.urls")),
-    path("inventory/audit/", include("audit.urls")),
-    path("inventory/reports/", include("reports.urls")),
-    path("inventory/procurement/", include("procurement.urls")),
-    
-    # Telescope and general Observatory workspaces
-    path("telescope/", include("telescope.urls", namespace="telescope")),
     path("resource-hub/", include("resource_hub.urls", namespace="resource_hub")),
     
     # Root dashboard default redirection

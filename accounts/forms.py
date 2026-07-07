@@ -3,7 +3,6 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 from .models import User
-from inventory.models import Branch
 
 """
 This module contains Django Forms for handling authentication and user administration tasks.
@@ -120,9 +119,8 @@ class UserCreateForm(forms.ModelForm):
         """
         username = self.cleaned_data.get("username")
         from django.contrib.auth import get_user_model
-        from inventory.models import InventoryUser
         User = get_user_model()
-        if User.objects.filter(username=username).exists() or InventoryUser.objects.filter(username=username).exists():
+        if User.objects.filter(username=username).exists():
             raise ValidationError("This username is already taken.")
         return username
 

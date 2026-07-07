@@ -4,8 +4,7 @@ from django.db import models
 """
 This module defines the database models for the user accounts system.
 It utilizes Django's built-in authentication system but extends it to support
-custom fields, roles, team modules, access permissions for various applications
-(Project Management, Inventory, Telescope Control), and specific user properties.
+custom fields, roles, team modules, and user properties for the Project Management system.
 """
 
 class User(AbstractUser):
@@ -18,8 +17,7 @@ class User(AbstractUser):
     
     We extend this model to add specific business logic properties, roles,
     teams, custom settings (like themes and email notifications), and granular 
-    permissions for the IIA Observatory Management workspace (Project Management,
-    Inventory management, and Telescope operations).
+    permissions for the IIA Observatory Management workspace (Project Management).
     """
 
     # Role choices defining the type of user in the Project Management space.
@@ -124,143 +122,9 @@ class User(AbstractUser):
     )
 
     # App Access Flags
-    # These flags control general authorization access to major sub-applications.
     can_access_pm = models.BooleanField(
         default=True,
         help_text="Allows access to the Project Management System."
-    )
-    can_access_inventory = models.BooleanField(
-        default=False,
-        help_text="Allows access to the Inventory Management System."
-    )
-    can_access_telescope = models.BooleanField(
-        default=False,
-        help_text="Allows access to the Telescope Control System."
-    )
-    is_telescope_admin = models.BooleanField(
-        default=False,
-        help_text="Allows administrative configurations in the Telescope app."
-    )
-
-    # Telescope Specific Permissions
-    # Granular controls over telescope systems and hardware operations.
-    can_operate_vbt = models.BooleanField(
-        default=True,
-        help_text="Allows operation commands on the Vainu Bappu Telescope (VBT)."
-    )
-    can_operate_jcbt = models.BooleanField(
-        default=True,
-        help_text="Allows operation commands on the JC Bhattacharya Telescope (JCBT)."
-    )
-    can_operate_zeiss = models.BooleanField(
-        default=True,
-        help_text="Allows operation commands on the Zeiss Telescope."
-    )
-    can_operate_cassegrain = models.BooleanField(
-        default=True,
-        help_text="Allows operation commands on the Cassegrain Spectrograph."
-    )
-    can_operate_schmidt = models.BooleanField(
-        default=True,
-        help_text="Allows operation commands on the Schmidt Telescope."
-    )
-    can_command_dome = models.BooleanField(
-        default=True,
-        help_text="Allows opening/closing and rotation commands to the dome structure."
-    )
-    can_trigger_exposures = models.BooleanField(
-        default=True,
-        help_text="Allows triggering science CCD exposures or taking calibrations."
-    )
-
-    # Inventory Permissions Compatibility
-    # Links a user to a specific physical branch/warehouse in the inventory system.
-    # We reference the string 'inventory.Branch' to prevent circular import errors.
-    inventory_branch = models.ForeignKey(
-        "inventory.Branch",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="pm_users",
-        help_text="Associated inventory warehouse branch for stock and transfers."
-    )
-    
-    # Granular inventory permission toggles
-    can_access_adjustments_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing the stock adjustments list."
-    )
-    can_manage_adjustments = models.BooleanField(
-        default=True,
-        help_text="Allows creating or modifying stock adjustments."
-    )
-    can_access_serials_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing the serial tracking page."
-    )
-    can_manage_serials = models.BooleanField(
-        default=True,
-        help_text="Allows registering or editing serial/lot numbers."
-    )
-    can_access_limits_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing minimum stock thresholds/reorder limits."
-    )
-    can_manage_limits = models.BooleanField(
-        default=True,
-        help_text="Allows setting/modifying reorder points."
-    )
-    can_access_alerts_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing inventory reorder and expiry alerts."
-    )
-    can_manage_alerts = models.BooleanField(
-        default=True,
-        help_text="Allows clearing or modifying alerts configurations."
-    )
-    can_access_rentals_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing tool/item rentals."
-    )
-    can_manage_rentals = models.BooleanField(
-        default=True,
-        help_text="Allows renting out items or checking them back in."
-    )
-    can_access_shortage_page = models.BooleanField(
-        default=True,
-        help_text="Allows viewing lists of out-of-stock items."
-    )
-    can_manage_shortage_exports = models.BooleanField(
-        default=True,
-        help_text="Allows downloading Excel/CSV exports of shortage/purchase lists."
-    )
-    can_view_all_branches_inventory = models.BooleanField(
-        default=True,
-        help_text="Allows viewing stock counts across other branches."
-    )
-    can_add_inventory = models.BooleanField(
-        default=True,
-        help_text="Allows adding new stock items."
-    )
-    can_edit_inventory = models.BooleanField(
-        default=True,
-        help_text="Allows modifying details of existing stock items."
-    )
-    can_delete_inventory = models.BooleanField(
-        default=True,
-        help_text="Allows archiving/deleting stock records."
-    )
-    can_approve_transfer = models.BooleanField(
-        default=True,
-        help_text="Allows approving stock transfers between branches."
-    )
-    can_export_reports = models.BooleanField(
-        default=True,
-        help_text="Allows generating inventory stock status PDF/CSV reports."
-    )
-    can_manage_users = models.BooleanField(
-        default=True,
-        help_text="Allows administrating inventory system users."
     )
 
     class Meta:
@@ -300,15 +164,6 @@ class User(AbstractUser):
         """Checks if the user is a super administrator."""
         return self.role == "admin" or self.is_superuser
 
-    @property
-    def is_branch_admin(self):
-        """Checks if the user has branch admin privileges."""
-        return self.role == "admin" or self.is_superuser
-
-    @property
-    def branch(self):
-        """Exposes the linked inventory branch as a convenient alias property."""
-        return self.inventory_branch
 
     @property
     def display_name(self):

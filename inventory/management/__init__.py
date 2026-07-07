@@ -1,3 +1,0 @@
-"""
-Inventory Management Commands Package.
-"""
